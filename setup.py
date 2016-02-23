@@ -23,13 +23,12 @@ except ImportError:
     from setuptools import setup, find_packages
 
 requires = [
-              'gevent',
               'pyghmi',
             ]
 
 setup(
     name = 'ipmisim',
-    version = '0.1',
+    version = '0.2',
     maintainer = 'Rohit Yadav',
     maintainer_email = 'bhaisaab@apache.org',
     url = 'https://github.com/bhaisaab/ipmisim',

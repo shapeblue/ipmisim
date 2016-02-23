@@ -15,9 +15,6 @@
 # Original Author: Peter Sooky <xsooky00@stud.fit.vubtr.cz>
 # Brno University of Technology, Faculty of Information Technology
 
-from gevent import socket
-from gevent.server import DatagramServer
-
 import struct
 import os
 import sys
@@ -35,18 +32,16 @@ import collections
 from fakebmc import FakeBmc
 from fakesession import FakeSession
 
-import gevent.monkey
-
-gevent.monkey.patch_all()
+import SocketServer
 
 logger = logging.getLogger()
+IpmiServerCtx = None
 
 
-class IpmiServer(object):
+class IpmiServerContext(object):
 
-    def __init__(self, port=9001):
+    def __init__(self, port = 9001):
         self.device_name = "CloudStack IPMI Sim"
-        self.host = ''
         self.port = port
         self.sessions = dict()
 
@@ -62,13 +57,8 @@ class IpmiServer(object):
         oemdata = (0, 0, 0, 0)
         self.authcap = struct.pack('BBBBBBBBB', 0, lanchannel, authtype, authstatus, chancap, *oemdata)
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setblocking(1)
-        self.sock.bind(('', self.port))
         self.bmc = self._configure_users()
-        logger.info('CloudStack IPMI Sim initialized on port: %s', self.port)
+        logger.info('CloudStack IPMI Sim BMC initialized on port: %s', self.port)
 
     def _configure_users(self):
         # XML parsing
@@ -97,7 +87,8 @@ class IpmiServer(object):
         csum &= 0xff
         return csum
 
-    def handle(self, data, address):
+    def handle(self, data, address, socket):
+        self.sock = socket
         # make sure self.session exists
         if not address[0] in self.sessions.keys() or not hasattr(self, 'session'):
             # new session for new source
@@ -430,15 +421,17 @@ class IpmiServer(object):
             logger.info('IPMI unrecognized command from %s', self.session.sockaddr)
             logger.info('IPMI response sent (Invalid Command) to %s', self.session.sockaddr)
 
-    def start(self, host, port):
-        connection = (host, port)
-        self.server = DatagramServer(connection, self.handle)
-        logger.info('IPMI server started on: %s', connection)
-        self.server.serve_forever()
 
-    def stop(self):
-        self.server.stop()
-        logger.info('IPMI server stopped')
+class IpmiServer(SocketServer.BaseRequestHandler):
+    def handle(self):
+        data = self.request[0]
+        socket = self.request[1]
+        address = self.client_address
+        return IpmiServerCtx.handle(data, address, socket)
+
+
+class ThreadedIpmiServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
+    pass
 
 
 def main():
@@ -453,11 +446,16 @@ def main():
     port = 9001
     if len(sys.argv) > 1:
         port = int(sys.argv[1])
-    ipmi_server = IpmiServer(port)
+
+    global IpmiServerCtx
+    IpmiServerCtx = IpmiServerContext(port)
+
     try:
-        ipmi_server.start('0.0.0.0', port)
+        server = ThreadedIpmiServer(('0.0.0.0', port), IpmiServer)
+        server.serve_forever()
     except KeyboardInterrupt:
-        ipmi_server.stop()
+        server.shutdown()
+        server.server_close()
         sys.exit(0)
 
 

@@ -71,14 +71,14 @@ class FakeBmc(Bmc):
 
     def power_reset(self):
         logger.info('IPMI BMC Power_Reset request.')
-        self.powerstate = 'off'
+        # warm boot
+        self.powerstate = 'on'
 
     def power_cycle(self):
         logger.info('IPMI BMC Power_Cycle request.')
-        if self.powerstate == 'off':
-            self.powerstate = 'on'
-        else:
-            self.powerstate = 'off'
+        # cold boot
+        self.powerstate = 'off'
+        self.powerstate = 'on'
 
     def power_shutdown(self):
         logger.info('IPMI BMC Power_Shutdown request.')
