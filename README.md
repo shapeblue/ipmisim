@@ -17,7 +17,7 @@ Installation:
 
 Usage in integration tests:
 
-    from ipmisim import IpmiServer
+    from ipmisim.ipmisim import IpmiServer
 
     ipmi_server = IpmiServer(9001)
     ipmi_server.start('0.0.0.0', 9001)
