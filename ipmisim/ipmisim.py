@@ -35,30 +35,34 @@ from fakesession import FakeSession
 import SocketServer
 
 logger = logging.getLogger()
-IpmiServerCtx = None
 
 
 class IpmiServerContext(object):
 
-    def __init__(self, port = 9001):
-        self.device_name = "CloudStack IPMI Sim"
-        self.port = port
-        self.sessions = dict()
+    __instance = None
 
-        self.uuid = uuid.uuid4()
-        self.kg = None
+    def __new__(cls):
+        if cls.__instance == None:
+            cls.__instance = object.__new__(cls)
+            cls.__instance.name = "IpmiServer Context"
 
-        self.authdata = collections.OrderedDict()
+            # Initialize ctx state
+            self = cls.__instance
+            self.device_name = "CloudStack IPMI Sim"
+            self.sessions = dict()
+            self.uuid = uuid.uuid4()
+            self.kg = None
+            self.authdata = collections.OrderedDict()
 
-        lanchannel = 1
-        authtype = 0b10000000
-        authstatus = 0b00000100
-        chancap = 0b00000010
-        oemdata = (0, 0, 0, 0)
-        self.authcap = struct.pack('BBBBBBBBB', 0, lanchannel, authtype, authstatus, chancap, *oemdata)
-
-        self.bmc = self._configure_users()
-        logger.info('CloudStack IPMI Sim BMC initialized on port: %s', self.port)
+            lanchannel = 1
+            authtype = 0b10000000
+            authstatus = 0b00000100
+            chancap = 0b00000010
+            oemdata = (0, 0, 0, 0)
+            self.authcap = struct.pack('BBBBBBBBB', 0, lanchannel, authtype, authstatus, chancap, *oemdata)
+            self.bmc = self._configure_users()
+            logger.info('CloudStack IPMI Sim BMC initialized')
+        return cls.__instance
 
     def _configure_users(self):
         # XML parsing
@@ -78,7 +82,7 @@ class IpmiServerContext(object):
 
         self.channelaccessdata = collections.OrderedDict(zip(authdata_name, activeusers))
 
-        return FakeBmc(self.authdata, self.port)
+        return FakeBmc(self.authdata)
 
     def _checksum(self, *data):
         csum = sum(data)
@@ -427,7 +431,7 @@ class IpmiServer(SocketServer.BaseRequestHandler):
         data = self.request[0]
         socket = self.request[1]
         address = self.client_address
-        return IpmiServerCtx.handle(data, address, socket)
+        return IpmiServerContext().handle(data, address, socket)
 
 
 class ThreadedIpmiServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
@@ -447,11 +451,9 @@ def main():
     if len(sys.argv) > 1:
         port = int(sys.argv[1])
 
-    global IpmiServerCtx
-    IpmiServerCtx = IpmiServerContext(port)
-
     try:
         server = ThreadedIpmiServer(('0.0.0.0', port), IpmiServer)
+        logger.info("Started IPMI Server on 0.0.0.0:" + str(port))
         server.serve_forever()
     except KeyboardInterrupt:
         server.shutdown()

@@ -25,11 +25,8 @@ logger = logging.getLogger()
 
 class FakeBmc(Bmc):
 
-    def __init__(self, authdata, port):
+    def __init__(self, authdata):
         self.authdata = authdata
-        self.port = 623
-        if port:
-            self.port = port
         # Initialize fake BMC config
         self.deviceid = 0xcafebabe
         self.revision = 0x100
