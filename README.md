@@ -3,6 +3,8 @@
 A fake ipmi server for testing purposes both as a tool and a library.
 The code is forked from [Conpot](http://conpot.org/) and based on `pyghmi`.
 
+![version badge](https://badge.fury.io/py/ipmisim.png) ![download badge](http://img.shields.io/pypi/dm/ipmisim.png)
+
 This was created for testing IPMI related features in [Apache CloudStack](http://cloudstack.apache.org).
 
 The tool ships with default sets of users for ease of use:
