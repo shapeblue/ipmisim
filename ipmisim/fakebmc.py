@@ -20,7 +20,7 @@ import logging
 from pyghmi.ipmi.bmc import Bmc
 
 
-logger = logging.getLogger()
+logger = logging.getLogger('ipmisim')
 
 
 class FakeBmc(Bmc):

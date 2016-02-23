@@ -29,7 +29,7 @@ import hmac
 import hashlib
 from Crypto.Cipher import AES
 
-logger = logging.getLogger()
+logger = logging.getLogger('ipmisim')
 
 def _monotonic_time():
     return os.times()[4]
@@ -286,7 +286,7 @@ class FakeSession(Session):
                 message.append(newpsize >> 8)
                 iv = os.urandom(16)
                 message += list(struct.unpack("16B", iv))
-                payloadtocrypt = self._aespad(payload)
+                payloadtocrypt = map(lambda x: x & 0xff, self._aespad(payload))
                 crypter = AES.new(self.aeskey, AES.MODE_CBC, iv)
                 crypted = crypter.encrypt(struct.pack("%dB" % len(payloadtocrypt), *payloadtocrypt))
                 crypted = list(struct.unpack("%dB" % len(crypted), crypted))
@@ -348,7 +348,7 @@ class FakeSession(Session):
             self.waiting_sessions[self]['timeout'] = self.timeout + _monotonic_time()
 
     def send_data(self, packet, address):
-        logger.info('IPMI response sent to %s', address)
+        logger.debug('IPMI response sent to %s', address)
         self.socket.sendto(packet, address)
 
 

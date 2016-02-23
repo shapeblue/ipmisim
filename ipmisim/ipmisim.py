@@ -34,7 +34,8 @@ from fakesession import FakeSession
 
 import SocketServer
 
-logger = logging.getLogger()
+logger = logging.getLogger('ipmisim')
+logging.disable(logging.CRITICAL)
 
 
 class IpmiServerContext(object):
@@ -108,7 +109,7 @@ class IpmiServerContext(object):
             self.initiate_session(data, address, self.session)
         else:
             # session already exists
-            logger.info('Incoming IPMI traffic from %s', address)
+            logger.debug('Incoming IPMI traffic from %s', address)
             if self.session.stage == 0:
                 self.close_server_session()
             else:
@@ -166,11 +167,11 @@ class IpmiServerContext(object):
         bodydata = struct.unpack('B' * len(header[17:]), header[17:])
         header += chr(self._checksum(*bodydata))
         self.session.stage += 1
-        logger.info('Connection established with %s', sockaddr)
+        logger.debug('Connection established with %s', sockaddr)
         self.session.send_data(header, sockaddr)
 
     def close_server_session(self):
-        logger.info('IPMI Session closed %s', self.session.sockaddr[0])
+        logger.debug('IPMI Session closed %s', self.session.sockaddr[0])
         # cleanup session
         del self.sessions[self.session.sockaddr[0]]
         del self.session
@@ -230,7 +231,7 @@ class IpmiServerContext(object):
                         1, 0, 0, 8, 1, 0, 0, 0,  # integrity
                         2, 0, 0, 8, 1, 0, 0, 0,  # privacy
         ])
-        logger.info('IPMI open session request')
+        logger.debug('IPMI open session request')
         self.session.send_payload(response, constants.payload_types['rmcpplusopenresponse'], retry=False)
 
     def _got_rakp1(self, data):
@@ -261,7 +262,7 @@ class IpmiServerContext(object):
         authcode = hmac.new(self.kuid, hmacdata, hashlib.sha1).digest()
         authcode = list(struct.unpack('%dB' % len(authcode), authcode))
         newmessage = ([clienttag, 0, 0, 0] + self.clientsessionid + self.Rc + uuidbytes + authcode)
-        logger.info('IPMI rakp1 request')
+        logger.debug('IPMI rakp1 request')
         self.session.send_payload(newmessage, constants.payload_types['rakp2'], retry=False)
 
     def _got_rakp3(self, data):
@@ -285,7 +286,7 @@ class IpmiServerContext(object):
             return
         self.session.localsid = struct.unpack('<I', struct.pack('4B', *self.managedsessionid))[0]
 
-        logger.info('IPMI rakp3 request')
+        logger.debug('IPMI rakp3 request')
         self.session.ipmicallback = self.handle_client_request
         self._send_rakp4(clienttag, 0)
 
@@ -295,7 +296,7 @@ class IpmiServerContext(object):
         hmacdata = struct.pack('%dB' % len(hmacdata), *hmacdata)
         authdata = hmac.new(self.sik, hmacdata, hashlib.sha1).digest()[:12]
         payload += struct.unpack('%dB' % len(authdata), authdata)
-        logger.info('IPMI rakp4 sent')
+        logger.debug('IPMI rakp4 sent')
         self.session.send_payload(payload, constants.payload_types['rakp4'], retry=False)
         self.session.confalgo = 'aes'
         self.session.integrityalgo = 'sha1'
@@ -312,11 +313,11 @@ class IpmiServerContext(object):
                 else:
                     self.clientpriv = request['data'][0]
             self.session._send_ipmi_net_payload(code=returncode, data=[self.clientpriv])
-            logger.info('IPMI response sent (Set Session Privilege) to %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Set Session Privilege) to %s', self.session.sockaddr)
         elif request['netfn'] == 6 and request['command'] == 0x3c:
             # close session
             self.session.send_ipmi_response()
-            logger.info('IPMI response sent (Close Session) to %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Close Session) to %s', self.session.sockaddr)
             self.close_server_session()
         elif request['netfn'] == 6 and request['command'] == 0x44:
             # get user access
@@ -340,7 +341,7 @@ class IpmiServerContext(object):
             data.append(sum(self.fixedusers))
             data.append(self.channelaccess)
             self.session._send_ipmi_net_payload(code=returncode, data=data)
-            logger.info('IPMI response sent (Get User Access) to %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Get User Access) to %s', self.session.sockaddr)
         elif request['netfn'] == 6 and request['command'] == 0x46:
             # get user name
             userid = request['data'][0]
@@ -351,7 +352,7 @@ class IpmiServerContext(object):
                 # filler
                 data.append(0)
             self.session._send_ipmi_net_payload(code=returncode, data=data)
-            logger.info('IPMI response sent (Get User Name) to %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Get User Name) to %s', self.session.sockaddr)
         elif request['netfn'] == 6 and request['command'] == 0x45:
             # set user name
             # TODO: fix issue where users can be overwritten
@@ -380,7 +381,7 @@ class IpmiServerContext(object):
 
             returncode = 0
             self.session._send_ipmi_net_payload(code=returncode)
-            logger.info('IPMI response sent (Set User Name) to %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Set User Name) to %s', self.session.sockaddr)
         elif request['netfn'] == 6 and request['command'] == 0x47:
             # set user passwd
             passwd_length = request['data'][0] & 0b10000000
@@ -422,8 +423,8 @@ class IpmiServerContext(object):
         else:
             returncode = 0xc1
             self.session._send_ipmi_net_payload(code=returncode)
-            logger.info('IPMI unrecognized command from %s', self.session.sockaddr)
-            logger.info('IPMI response sent (Invalid Command) to %s', self.session.sockaddr)
+            logger.debug('IPMI unrecognized command from %s', self.session.sockaddr)
+            logger.debug('IPMI response sent (Invalid Command) to %s', self.session.sockaddr)
 
 
 class IpmiServer(SocketServer.BaseRequestHandler):
@@ -439,7 +440,8 @@ class ThreadedIpmiServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
 
 
 def main():
-    logger.setLevel(logging.DEBUG)
+    logging.disable(logging.NOTSET)
+    logger.setLevel(logging.INFO)
 
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)
@@ -452,6 +454,7 @@ def main():
         port = int(sys.argv[1])
 
     try:
+        ThreadedIpmiServer.allow_reuse_address = True
         server = ThreadedIpmiServer(('0.0.0.0', port), IpmiServer)
         logger.info("Started IPMI Server on 0.0.0.0:" + str(port))
         server.serve_forever()
