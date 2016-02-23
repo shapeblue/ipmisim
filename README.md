@@ -15,13 +15,12 @@ Installation:
     pip install ipmisim
 
 
-Usage in integration tests:
+Running:
 
-    from ipmisim.ipmisim import IpmiServer
+    ipmisim 3000  # Runs on custom port 3000, else 9001 by default
 
-    ipmi_server = IpmiServer(9001)
-    ipmi_server.start('0.0.0.0', 9001)
-
+For, usage in integration tests you can do `from ipmisim.ipmisim import IpmiServer`.
+For more details see ipmisim/ipmisim.py
 
 Testing with ipmitool:
 
