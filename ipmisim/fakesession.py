@@ -286,7 +286,7 @@ class FakeSession(Session):
                 message.append(newpsize >> 8)
                 iv = os.urandom(16)
                 message += list(struct.unpack("16B", iv))
-                payloadtocrypt = map(lambda x: x & 0xff, self._aespad(payload))
+                payloadtocrypt = map(lambda x: x % 256, self._aespad(payload))
                 crypter = AES.new(self.aeskey, AES.MODE_CBC, iv)
                 crypted = crypter.encrypt(struct.pack("%dB" % len(payloadtocrypt), *payloadtocrypt))
                 crypted = list(struct.unpack("%dB" % len(crypted), crypted))
