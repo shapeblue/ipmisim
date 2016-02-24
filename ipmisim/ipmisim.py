@@ -95,7 +95,7 @@ class IpmiServerContext(object):
     def handle(self, data, address, socket):
         self.sock = socket
         # make sure self.session exists
-        if not address[0] in self.sessions.keys() or not hasattr(self, 'session'):
+        if not (address[0] in self.sessions.keys() and self.sessions[address[0]].port == address[1]) or not hasattr(self, 'session'):
             # new session for new source
             logger.info('New IPMI traffic from %s', address)
             self.session = FakeSession(address[0], "", "", address[1])

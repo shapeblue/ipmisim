@@ -28,13 +28,13 @@ class FakeBmc(Bmc):
     def __init__(self, authdata):
         self.authdata = authdata
         # Initialize fake BMC config
-        self.deviceid = 0xcafebabe
-        self.revision = 0x100
+        self.deviceid = 0x24
+        self.revision = 0x10
         self.firmwaremajor = 0x10
         self.firmwareminor = 0x1
         self.ipmiversion = 2
         self.additionaldevices = 0
-        self.mfgid = 0xe
+        self.mfgid = 0xf
         self.prodid = 0xe
 
         self.powerstate = 'off'
