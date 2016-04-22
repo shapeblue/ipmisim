@@ -28,7 +28,7 @@ requires = [
 
 setup(
     name = 'ipmisim',
-    version = '0.5',
+    version = '0.6',
     maintainer = 'Rohit Yadav',
     maintainer_email = 'bhaisaab@apache.org',
     url = 'https://github.com/bhaisaab/ipmisim',

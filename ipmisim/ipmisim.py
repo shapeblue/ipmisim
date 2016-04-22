@@ -42,7 +42,9 @@ class IpmiServerContext(object):
 
     __instance = None
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
+        if len(args) > 0 and args[0] == 'reset':
+            cls.__instance = None
         if cls.__instance == None:
             cls.__instance = object.__new__(cls)
             cls.__instance.name = "IpmiServer Context"
@@ -104,6 +106,8 @@ class IpmiServerContext(object):
             self.uuid = uuid.uuid4()
             self.kg = None
 
+            if not self.session:
+                return
             self.session.socket = self.sock
             self.sessions[address[0]] = self.session
             self.initiate_session(data, address, self.session)
@@ -452,6 +456,9 @@ def main():
     port = 9001
     if len(sys.argv) > 1:
         port = int(sys.argv[1])
+
+    # Initialize context
+    ctx = IpmiServerContext()
 
     try:
         ThreadedIpmiServer.allow_reuse_address = True
