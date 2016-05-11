@@ -43,9 +43,7 @@ class IpmiServerContext(object):
     __instance = None
 
     def __new__(cls, *args, **kwargs):
-        if len(args) > 0 and args[0] == 'reset':
-            cls.__instance = None
-        if cls.__instance == None:
+        if cls.__instance == None or (len(args) > 0 and args[0] == 'reset'):
             cls.__instance = object.__new__(cls)
             cls.__instance.name = "IpmiServer Context"
 
@@ -106,8 +104,9 @@ class IpmiServerContext(object):
             self.uuid = uuid.uuid4()
             self.kg = None
 
-            if not self.session:
+            if not hasattr(self, 'session') or not self.session:
                 return
+
             self.session.socket = self.sock
             self.sessions[address[0]] = self.session
             self.initiate_session(data, address, self.session)
@@ -179,8 +178,6 @@ class IpmiServerContext(object):
         # cleanup session
         del self.sessions[self.session.sockaddr[0]]
         del self.session
-
-        pass
 
     def _got_request(self, data, address, session):
         if data[4] in ('\x00', '\x02'):
