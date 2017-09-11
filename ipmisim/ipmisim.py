@@ -122,6 +122,7 @@ class IpmiServerContext(object):
         if len(data) < 22:
             self.close_server_session()
             return
+        payload_offset = 14
         if not (data[0] == '\x06' and data[2:4] == '\xff\x07'):
             # check rmcp version, sequencenumber and class;
             self.close_server_session()
@@ -139,15 +140,19 @@ class IpmiServerContext(object):
                 serversession.ServerSession(self.authdata, self.kg, session.sockaddr,
                                             self.sock, data[16:], self.uuid, bmc=self)
                 return
-            data = data[13:]
-        myaddr, netfnlun = struct.unpack('2B', data[14:16])
+            payload_offset = 16
+
+        myaddr, netfnlun = struct.unpack('2B', data[payload_offset:payload_offset+2])
         netfn = (netfnlun & 0b11111100) >> 2
         mylun = netfnlun & 0b11
+        clientaddr, clientseqlun = struct.unpack('BB', data[payload_offset + 3:payload_offset + 5])
+        clientlun = (clientseqlun & 0xb11)
+        clientseq = (clientseqlun & 0b11111100) >> 2
         if netfn == 6:
             # application request
-            if data[19] == '\x38':
+            if data[payload_offset+5] == '\x38':
                 # cmd = get channel auth capabilities
-                verchannel, level = struct.unpack('2B', data[20:22])
+                verchannel, level = struct.unpack('2B', data[payload_offset+6:payload_offset+8])
                 version = verchannel & 0b10000000
                 if version != 0b10000000:
                     self.close_server_session()
@@ -158,7 +163,22 @@ class IpmiServerContext(object):
                     return
                 (clientaddr, clientlun) = struct.unpack('BB', data[17:19])
                 level &= 0b1111
-                self.send_auth_cap(myaddr, mylun, clientaddr, clientlun, session.sockaddr)
+                if session.authtype == 6:
+                    self.send_auth_cap_v2(myaddr, mylun, clientaddr, clientlun, clientseq, session.sockaddr)
+                else:
+                    self.send_auth_cap(myaddr, mylun, clientaddr, clientlun, session.sockaddr)
+
+    def send_auth_cap_v2(self, myaddr, mylun, clientaddr, clientlun, clientseq, sockaddr):
+        header = '\x06\x00\xff\x07\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00'
+        headerdata = (clientaddr, clientlun | (7 << 2))
+        headersum = self._checksum(*headerdata)
+        header += struct.pack('BBBBBB', *(headerdata + (headersum, myaddr, mylun | (clientseq << 2), 0x38)))
+        header += self.authcap
+        bodydata = struct.unpack('B' * len(header[19:]), header[19:])
+        header += chr(self._checksum(*bodydata))
+        self.session.stage += 1
+        logger.debug('Responding to GET_CHAN_AUTH_CAP with %s', sockaddr)
+        self.session.send_data(header, sockaddr)
 
     def send_auth_cap(self, myaddr, mylun, clientaddr, clientlun, sockaddr):
         header = '\x06\x00\xff\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'
