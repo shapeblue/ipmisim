@@ -62,7 +62,7 @@ class FakeSession(Session):
         self.ipmicallback = self._generic_callback
         logger.info('New IPMI session initialized for client (%s)', self.sockaddr)
 
-    def _generic_callback(self, response):
+    def _generic_callback(self, session, response):
         self.lastresponse = response
 
     def _ipmi20(self, rawdata):
@@ -72,19 +72,19 @@ class FakeSession(Session):
         # header = data[:15]; message = data[16:]
         if payload_type == 0x10:
             # rmcp+ open session request
-            return self.server._got_rmcp_openrequest(data[16:])
+            return self.server._got_rmcp_openrequest(self, data[16:])
         elif payload_type == 0x11:
             # ignore: rmcp+ open session response
             return
         elif payload_type == 0x12:
             # rakp message 1
-            return self.server._got_rakp1(data[16:])
+            return self.server._got_rakp1(self, data[16:])
         elif payload_type == 0x13:
             # ignore: rakp message 2
             return
         elif payload_type == 0x14:
             # rakp message 3
-            return self.server._got_rakp3(data[16:])
+            return self.server._got_rakp3(self, data[16:])
         elif payload_type == 0x15:
             # ignore: rakp message 4
             return
@@ -93,7 +93,7 @@ class FakeSession(Session):
             # payload_type == 1; SOL(Serial Over Lan)
             if not (data[5] & 0b01000000):
                 # non-authenticated payload
-                self.server.close_server_session()
+                self.server.close_server_session(self)
                 return
             encryption_bit = 0
             if data[5] & 0b10000000:
@@ -102,7 +102,7 @@ class FakeSession(Session):
             authcode = rawdata[-12:]
             if self.k1 is None:
                 # we are in no shape to process a packet now
-                self.server.close_server_session()
+                self.server.close_server_session(self)
                 return
             expectedauthcode = hmac.new(self.k1, rawdata[4:-12], hashlib.sha1).digest()[:12]
             if authcode != expectedauthcode:
@@ -112,12 +112,12 @@ class FakeSession(Session):
             sid = struct.unpack("<I", rawdata[6:10])[0]
             if sid != self.localsid:
                 # session id mismatch, drop it
-                self.server.close_server_session()
+                self.server.close_server_session(self)
                 return
             remseqnumber = struct.unpack("<I", rawdata[10:14])[0]
             if hasattr(self, 'remseqnumber'):
                 if remseqnumber < self.remseqnumber and self.remseqnumber != 0xffffffff:
-                    self.server.close_server_session()
+                    self.server.close_server_session(self)
                     return
             self.remseqnumber = remseqnumber
             psize = data[14] + (data[15] << 8)
@@ -143,7 +143,7 @@ class FakeSession(Session):
                     self.sol_handler(payload)
         else:
             logger.error('IPMI Unrecognized payload type.')
-            self.server.close_server_session()
+            self.server.close_server_session(self)
             return
 
     def _ipmi15(self, payload):
@@ -173,7 +173,7 @@ class FakeSession(Session):
         del payload[0:1]
         response['data'] = payload
         self.timeout = 0.5 + (0.5 * random.random())
-        self.ipmicallback(response)
+        self.ipmicallback(self, response)
 
     def _send_ipmi_net_payload(self, netfn=None, command=None, data=None, code=0, bridge_request=None, \
                                retry=None, delay_xmit=None):
