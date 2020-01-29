@@ -23,15 +23,15 @@ except ImportError:
     from setuptools import setup, find_packages
 
 requires = [
-              'pyghmi',
+              'pyghmi==1.2.16',
             ]
 
 setup(
     name = 'ipmisim',
-    version = '0.7',
+    version = '0.8',
     maintainer = 'Rohit Yadav',
-    maintainer_email = 'bhaisaab@apache.org',
-    url = 'https://github.com/bhaisaab/ipmisim',
+    maintainer_email = 'rohit@apache.org',
+    url = 'https://github.com/rhtyd/ipmisim',
     description = "ipmisim is a fake ipmi server",
     long_description = "ipmisim is a fake ipmi server",
     platforms = ("Any",),
