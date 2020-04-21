@@ -24,6 +24,7 @@ except ImportError:
 
 requires = [
               'pyghmi==1.2.16',
+              'future==0.18.2',
             ]
 
 setup(

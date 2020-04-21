@@ -38,6 +38,8 @@ else:
 
 import socketserver
 
+from builtins import bytes
+
 logger = logging.getLogger('ipmisim')
 logging.disable(logging.CRITICAL)
 
