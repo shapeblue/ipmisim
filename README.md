@@ -33,6 +33,7 @@ For, usage in integration tests you can import the server module and create a se
     from ipmisim.ipmisim import IpmiServer
     import SocketServer
 
+    port = 3000
     server = SocketServer.UDPServer(('0.0.0.0', port), IpmiServer)
     server.serve_forever()
 
