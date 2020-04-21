@@ -31,7 +31,7 @@ Running:
 For, usage in integration tests you can import the server module and create a server:
 
     from ipmisim.ipmisim import IpmiServer
-    import SocketServer
+    import socketserver
 
     port = 3000
     server = SocketServer.UDPServer(('0.0.0.0', port), IpmiServer)
