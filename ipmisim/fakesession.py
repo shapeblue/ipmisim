@@ -260,7 +260,7 @@ class FakeSession(Session):
             message.append(payload_type)
             if baretype == 2:
                 raise NotImplementedError("OEM Payloads")
-            elif baretype not in constants.payload_types.values():
+            elif baretype not in list(constants.payload_types.values()):
                 raise NotImplementedError("Unrecognized payload type %d" % baretype)
             message += struct.unpack("!4B", struct.pack("<I", self.sessionid))
         message += struct.unpack("!4B", struct.pack("<I", self.sequencenumber))
@@ -286,7 +286,7 @@ class FakeSession(Session):
                 message.append(newpsize >> 8)
                 iv = os.urandom(16)
                 message += list(struct.unpack("16B", iv))
-                payloadtocrypt = map(lambda x: x % 256, self._aespad(payload))
+                payloadtocrypt = [x % 256 for x in self._aespad(payload)]
                 crypter = AES.new(self.aeskey, AES.MODE_CBC, iv)
                 crypted = crypter.encrypt(struct.pack("%dB" % len(payloadtocrypt), *payloadtocrypt))
                 crypted = list(struct.unpack("%dB" % len(crypted), crypted))
