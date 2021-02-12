@@ -29,10 +29,16 @@ import hmac
 import hashlib
 import collections
 
-from fakebmc import FakeBmc
-from fakesession import FakeSession
+if not __package__ and __name__ == "__main__":
+  from fakebmc import FakeBmc
+  from fakesession import FakeSession
+else:
+  from .fakebmc import FakeBmc
+  from .fakesession import FakeSession
 
-import SocketServer
+import socketserver
+
+from builtins import bytes
 
 logger = logging.getLogger('ipmisim')
 logging.disable(logging.CRITICAL)
@@ -122,19 +128,19 @@ class IpmiServerContext(object):
         if len(data) < 22:
             self.close_server_session()
             return
-        if not (data[0] == '\x06' and data[2:4] == '\xff\x07'):
+        if not (data[0:1] == b'\x06' and data[2:4] == b'\xff\x07'):
             # check rmcp version, sequencenumber and class;
             self.close_server_session()
             return
-        if data[4] == '\x06':
+        if data[4:5] == b'\x06':
             # ipmi v2
             session.ipmiversion = 2.0
             session.authtype = 6
-            payload_type = data[5]
-            if payload_type not in ('\x00', '\x10'):
+            payload_type = data[5:6]
+            if payload_type not in (b'\x00', b'\x10'):
                 self.close_server_session()
                 return
-            if payload_type == '\x10':
+            if payload_type == b'\x10':
                 # new session to handle conversation
                 serversession.ServerSession(self.authdata, self.kg, session.sockaddr,
                                             self.sock, data[16:], self.uuid, bmc=self)
@@ -145,7 +151,7 @@ class IpmiServerContext(object):
         mylun = netfnlun & 0b11
         if netfn == 6:
             # application request
-            if data[19] == '\x38':
+            if data[19:20] == b'\x38':
                 # cmd = get channel auth capabilities
                 verchannel, level = struct.unpack('2B', data[20:22])
                 version = verchannel & 0b10000000
@@ -161,14 +167,14 @@ class IpmiServerContext(object):
                 self.send_auth_cap(myaddr, mylun, clientaddr, clientlun, session.sockaddr)
 
     def send_auth_cap(self, myaddr, mylun, clientaddr, clientlun, sockaddr):
-        header = '\x06\x00\xff\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'
+        header = b'\x06\x00\xff\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'
 
         headerdata = (clientaddr, clientlun | (7 << 2))
         headersum = self._checksum(*headerdata)
         header += struct.pack('BBBBBB', *(headerdata + (headersum, myaddr, mylun, 0x38)))
         header += self.authcap
         bodydata = struct.unpack('B' * len(header[17:]), header[17:])
-        header += chr(self._checksum(*bodydata))
+        header += bytes.fromhex(str(self._checksum(*bodydata)))
         self.session.stage += 1
         logger.debug('Connection established with %s', sockaddr)
         self.session.send_data(header, sockaddr)
@@ -180,7 +186,7 @@ class IpmiServerContext(object):
         del self.session
 
     def _got_request(self, data, address, session):
-        if data[4] in ('\x00', '\x02'):
+        if data[4:5] in (b'\x00', b'\x02'):
             # ipmi 1.5 payload
             session.ipmiversion = 1.5
             remsequencenumber = struct.unpack('<I', data[5:9])[0]
@@ -188,7 +194,7 @@ class IpmiServerContext(object):
                 self.close_server_session()
                 return
             session.remsequencenumber = remsequencenumber
-            if ord(data[4]) != session.authtype:
+            if ord(data[4:5]) != session.authtype:
                 self.close_server_session()
                 return
             remsessid = struct.unpack("<I", data[9:13])[0]
@@ -197,7 +203,7 @@ class IpmiServerContext(object):
                 return
             rsp = list(struct.unpack("!%dB" % len(data), data))
             authcode = False
-            if data[4] == '\x02':
+            if data[4:5] == b'\x02':
                 # authcode in ipmi 1.5 packet
                 authcode = data[13:29]
                 del rsp[13:29]
@@ -209,7 +215,7 @@ class IpmiServerContext(object):
                     self.close_server_session()
                     return
             session._ipmi15(payload)
-        elif data[4] == '\x06':
+        elif data[4:5] == b'\x06':
             # ipmi 2.0 payload
             session.ipmiversion = 2.0
             session.authtype = 6
@@ -221,7 +227,7 @@ class IpmiServerContext(object):
 
     def _got_rmcp_openrequest(self, data):
         request = struct.pack('B' * len(data), *data)
-        clienttag = ord(request[0])
+        clienttag = ord(str(request[0]))
         self.clientsessionid = list(struct.unpack('4B', request[4:8]))
         self.managedsessionid = list(struct.unpack('4B', os.urandom(4)))
         self.session.privlevel = 4
@@ -246,7 +252,7 @@ class IpmiServerContext(object):
             return
         usernamebytes = data[28:]
         self.username = struct.pack('%dB' % len(usernamebytes), *usernamebytes)
-        if self.username not in self.authdata:
+        if self.username.decode() not in self.authdata:
             self.close_server_session()
             return
         uuidbytes = self.uuid.bytes
@@ -257,7 +263,7 @@ class IpmiServerContext(object):
                     [self.rolem, len(self.username)])
         hmacdata = struct.pack('%dB' % len(hmacdata), *hmacdata)
         hmacdata += self.username
-        self.kuid = self.authdata[self.username]
+        self.kuid = self.authdata[self.username.decode()].encode()
         if self.kg is None:
             self.kg = self.kuid
         authcode = hmac.new(self.kuid, hmacdata, hashlib.sha1).digest()
@@ -270,8 +276,8 @@ class IpmiServerContext(object):
         RmRc = struct.pack('B' * len(self.Rm + self.Rc), *(self.Rm + self.Rc))
         self.sik = hmac.new(self.kg, RmRc + struct.pack("2B", self.rolem, len(self.username)) +
                             self.username, hashlib.sha1).digest()
-        self.session.k1 = hmac.new(self.sik, '\x01' * 20, hashlib.sha1).digest()
-        self.session.k2 = hmac.new(self.sik, '\x02' * 20, hashlib.sha1).digest()
+        self.session.k1 = hmac.new(self.sik, b'\x01' * 20, hashlib.sha1).digest()
+        self.session.k2 = hmac.new(self.sik, b'\x02' * 20, hashlib.sha1).digest()
         self.session.aeskey = self.session.k2[0:16]
 
         hmacdata = struct.pack('B' * len(self.Rc), *self.Rc) + struct.pack("4B", *self.clientsessionid) +\
@@ -428,7 +434,7 @@ class IpmiServerContext(object):
             logger.debug('IPMI response sent (Invalid Command) to %s', self.session.sockaddr)
 
 
-class IpmiServer(SocketServer.BaseRequestHandler):
+class IpmiServer(socketserver.BaseRequestHandler):
     def handle(self):
         data = self.request[0]
         socket = self.request[1]
@@ -436,7 +442,7 @@ class IpmiServer(SocketServer.BaseRequestHandler):
         return IpmiServerContext().handle(data, address, socket)
 
 
-class ThreadedIpmiServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
+class ThreadedIpmiServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
 
 
