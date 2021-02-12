@@ -30,10 +30,10 @@ requires = [
 
 setup(
     name = 'ipmisim',
-    version = '0.8',
+    version = '0.9',
     maintainer = 'Rohit Yadav',
     maintainer_email = 'rohit@apache.org',
-    url = 'https://github.com/rhtyd/ipmisim',
+    url = 'https://github.com/shapeblue/ipmisim',
     description = "ipmisim is a fake ipmi server",
     long_description = "ipmisim is a fake ipmi server",
     platforms = ("Any",),
