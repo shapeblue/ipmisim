@@ -310,6 +310,7 @@ class IpmiServerContext(object):
         self.session.sessionid = struct.unpack('<I', struct.pack('4B', *self.clientsessionid))[0]
 
     def handle_client_request(self, request):
+        authkeys = list(self.authdata.keys())
         if request['netfn'] == 6 and request['command'] == 0x3b:
             # set session privilage level
             pendingpriv = request['data'][0]
@@ -336,9 +337,9 @@ class IpmiServerContext(object):
                 returncode = 0xd4
             else:
                 returncode = 0
-            self.usercount = len(self.authdata.keys())
-            self.channelaccess = 0b0000000 | self.privdata[self.authdata.keys()[usid - 1]]
-            if self.channelaccessdata[self.authdata.keys()[usid - 1]] == 'true':
+            self.usercount = len(authkeys)
+            self.channelaccess = 0b0000000 | self.privdata[authkeys[usid - 1]]
+            if self.channelaccessdata[authkeys[usid - 1]] == 'true':
                 # channelaccess: 7=res; 6=callin; 5=link; 4=messaging; 3-0=privilege
                 self.channelaccess |= 0b00110000
 
@@ -353,8 +354,8 @@ class IpmiServerContext(object):
             # get user name
             userid = request['data'][0]
             returncode = 0
-            username = self.authdata.keys()[userid - 1]
-            data = map(ord, list(username))
+            username = authkeys[userid - 1]
+            data = list(map(ord, username))
             while len(data) < 16:
                 # filler
                 data.append(0)
@@ -366,7 +367,7 @@ class IpmiServerContext(object):
             # python does not support dictionary with duplicate keys
             userid = request['data'][0]
             username = ''.join(chr(x) for x in request['data'][1:]).strip('\x00')
-            oldname = self.authdata.keys()[userid - 1]
+            oldname = authkeys[userid - 1]
             # need to recreate dictionary to preserve order
             self.copyauth = collections.OrderedDict()
             self.copypriv = collections.OrderedDict()
@@ -393,7 +394,7 @@ class IpmiServerContext(object):
             # set user passwd
             passwd_length = request['data'][0] & 0b10000000
             userid = request['data'][0] & 0b00111111
-            username = self.authdata.keys()[userid - 1]
+            username = authkeys[userid - 1]
             operation = request['data'][1] & 0b00000011
             returncode = 0
 
