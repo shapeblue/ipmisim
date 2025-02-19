@@ -24,6 +24,12 @@ Installation:
 
     pip install --upgrade ipmisim
 
+Try to install `pycryptodome` when having issues with ipmisim, instead of pycrypto. Try this:
+```
+    pip uninstall pycrypto
+    pip install pycryptodome
+```
+
 Running:
 
     ipmisim 3000  # Runs on custom port 3000, else 9001 by default
