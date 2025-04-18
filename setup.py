@@ -23,9 +23,10 @@ except ImportError:
     from setuptools import setup, find_packages
 
 requires = [
-              'pyghmi==1.2.16',
+              'pyghmi',
               'future==0.18.2',
-              'pycrypto==2.6.1',
+              'pycrypto==2.6.1; python_version < "3"',
+              'pycryptodomex; python_version >= "3"'
             ]
 
 setup(
