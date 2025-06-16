@@ -25,7 +25,7 @@ except ImportError:
 requires = [
               'pyghmi==1.2.16',
               'future==0.18.2',
-              'pycrypto==2.6.1',
+              'pycryptodome==3.23.0',
             ]
 
 setup(
