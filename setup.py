@@ -30,7 +30,7 @@ requires = [
 
 setup(
     name = 'ipmisim',
-    version = '0.10',
+    version = '0.11',
     maintainer = 'Rohit Yadav',
     maintainer_email = 'rohit@apache.org',
     url = 'https://github.com/shapeblue/ipmisim',
