@@ -440,7 +440,8 @@ class IpmiServer(socketserver.BaseRequestHandler):
         data = self.request[0]
         socket = self.request[1]
         address = self.client_address
-        return IpmiServerContext().handle(data, address, socket)
+        ip, port = self.server.server_address
+        return IpmiServerContext(port=port).handle(data, address, socket)
 
 
 class ThreadedIpmiServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
